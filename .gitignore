@@ -1,0 +1,17 @@
+.DS_Store
+ssh-key-*/
+*.pem
+*.key
+.secrets/
+.state/
+.work/
+.venv/
+__pycache__/
+.pytest_cache/
+artifacts/
+dist/
+*.tar
+*.tar.gz
+ansible/inventory.local.yml
+*.kubeconfig
+!requirements.lock
