@@ -15,8 +15,9 @@ try:
     import yaml
 except ImportError:
     raise SystemExit('PyYAML is required for lint: python3 -m pip install PyYAML==6.0.3')
-roots = [Path(x) for x in ('scripts', 'tests', 'kubernetes', 'helm', 'observability', '.github')]
+roots = [Path(x) for x in ('scripts', 'tests', 'kubernetes', 'helm', 'observability', 'ansible', '.github')]
 files = [file for root in roots if root.exists() for file in root.rglob('*') if file.is_file()]
+files.append(Path('versions.yaml'))
 for file in files:
     if file.suffix == '.py':
         ast.parse(file.read_text(), filename=str(file))
@@ -26,7 +27,7 @@ print('Python syntax and YAML parsing passed')
 PY
 python3 -m unittest discover -s tests -p 'test_*.py'
 if command -v shellcheck >/dev/null 2>&1; then
-  find scripts -type f -name '*.sh' -print0 | xargs -0 shellcheck
+  find scripts -type f -name '*.sh' -print0 | xargs -0 shellcheck -x
 else
   echo 'SKIP: shellcheck is not installed (CI installs it)'
 fi
@@ -36,4 +37,10 @@ if command -v kubectl >/dev/null 2>&1; then
   done < <(find kubernetes -type f -name kustomization.yaml -print0)
 else
   echo 'SKIP: kubectl kustomize is not installed (CI installs it)'
+fi
+
+if command -v ansible-playbook >/dev/null 2>&1; then
+  ANSIBLE_CONFIG="$PWD/ansible/ansible.cfg" ansible-playbook --syntax-check -i ansible/inventory.example.yml ansible/site.yml
+else
+  echo 'SKIP: ansible-playbook is not installed (CI installs requirements.lock)'
 fi

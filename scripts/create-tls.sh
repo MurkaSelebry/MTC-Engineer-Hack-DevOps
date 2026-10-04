@@ -34,11 +34,11 @@ validate_leaf_identity() {
     echo 'TLS certificate is not signed by the preserved local CA.' >&2
     exit 1
   }
-  openssl x509 -in "$certificate" -checkhost demo.test -noout >/dev/null || {
+  openssl verify -no_check_time -verify_hostname demo.test -CAfile .secrets/ca.crt "$certificate" >/dev/null || {
     echo 'TLS certificate does not contain SAN demo.test.' >&2
     exit 1
   }
-  openssl x509 -in "$certificate" -checkhost canary.test -noout >/dev/null || {
+  openssl verify -no_check_time -verify_hostname canary.test -CAfile .secrets/ca.crt "$certificate" >/dev/null || {
     echo 'TLS certificate does not contain SAN canary.test.' >&2
     exit 1
   }

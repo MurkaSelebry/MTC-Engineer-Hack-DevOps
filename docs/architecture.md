@@ -30,7 +30,9 @@ flowchart LR
 | `observability` | Releases `monitoring`/`loki`, DaemonSet `fluentd`, PodMonitor Envoy, PrometheusRule, dashboard |
 | cluster scope | GatewayClass `eg`, StorageClass `mtc-local`, PV `mtc-prometheus`, `mtc-loki`, `mtc-grafana` |
 
-Pod CIDR — `10.244.0.0/16`, Service CIDR — `10.96.0.0/12`. Preflight проверяет пересечение с сетью основного интерфейса. На single-node control-plane разрешено размещение workloads; строгая межузловая anti-affinity не используется. NodePort имеет `externalTrafficPolicy: Cluster`.
+Pod CIDR — `10.244.0.0/16`, Service CIDR — `10.96.0.0/12`. Preflight проверяет адреса всех интерфейсов и маршруты, включая VPN, исключая управляемые интерфейсы Calico. На single-node control-plane разрешено размещение workloads; строгая межузловая anti-affinity не используется. NodePort имеет `externalTrafficPolicy: Cluster`.
+
+Старый пакетный `/etc/cni/net.d/87-podman-bridge.conflist` удаляется до запуска kubeadm: Podman использует Netavark, а containerd должен получить CNI только от Calico. Иначе первые служебные Pod могут ошибочно попасть в сеть Podman `10.88.0.0/16`. Автоматическая приемка проверяет адреса Pod и готовность служебных компонентов.
 
 TLS завершается в Envoy. Локальный CA и сертификат создаются один раз; SAN содержит `demo.test` и `canary.test`. Hostname маршрутизация остается задачей HTTPRoute. Путь `/v2` и его подпути полностью переписываются в `/` для backend v2. Canary веса относятся к запросам; конечная выборка не обязана быть точно 90/10.
 

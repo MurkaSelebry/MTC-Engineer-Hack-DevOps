@@ -5,12 +5,13 @@
     state: directory
     owner: "{{ item.uid }}"
     group: "{{ item.gid }}"
-    mode: '0770'
+    # kubelet fsGroup preserves/sets setgid on PVC roots; retain it on redeploy.
+    mode: "{{ item.mode | default('2770') }}"
   loop:
     - {name: prometheus, uid: '1000', gid: '2000'}
     - {name: loki, uid: '10001', gid: '10001'}
     - {name: grafana, uid: '472', gid: '472'}
-    - {name: fluentd, uid: '0', gid: '0'}
+    - {name: fluentd, uid: '0', gid: '0', mode: '0770'}
 - name: Render node-bound local volumes
   ansible.builtin.template:
     src: volumes.yaml.j2

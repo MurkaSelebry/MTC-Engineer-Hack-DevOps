@@ -19,6 +19,25 @@ def wait_for(callback, seconds=180):
     raise ValueError("Recovery condition did not become true before timeout")
 
 
+def restore_loki(replicas, run=command, pause=time.sleep):
+    last_error = None
+    for attempt in range(1, 6):
+        try:
+            run(["kubectl", "--request-timeout=20s", "-n", "observability", "scale",
+                 "statefulset/loki", f"--replicas={replicas}"], timeout=25)
+            run(["kubectl", "--request-timeout=20s", "-n", "observability", "rollout",
+                 "status", "statefulset/loki", "--timeout=20s"], timeout=25)
+            return attempt
+        except (ValueError, OSError) as exc:
+            last_error = exc
+            if attempt < 5:
+                pause(2)
+    raise ValueError(
+        f"EMERGENCY: failed to restore Loki to {replicas} replica after 5 attempts; "
+        f"run 'kubectl -n observability scale statefulset/loki --replicas={replicas}' immediately"
+    ) from last_error
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--allow-disruption", action="store_true", required=True)
@@ -86,8 +105,7 @@ def main():
             if buffer_size() <= 0:
                 raise ValueError("Persisted Fluentd buffer vanished while Loki was unavailable")
         finally:
-            command(["kubectl", "-n", "observability", "scale", "statefulset/loki", f"--replicas={replicas}"])
-            command(["kubectl", "-n", "observability", "rollout", "status", "statefulset/loki", "--timeout=300s"], timeout=310)
+            restore_loki(replicas)
         with port_forward("loki", 3100) as url:
             def delivered():
                 payload = api(url, "/loki/api/v1/query_range", {

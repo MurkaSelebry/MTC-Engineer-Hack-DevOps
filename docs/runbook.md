@@ -70,7 +70,7 @@ openssl verify -CAfile .secrets/ca.crt .secrets/tls.crt
 openssl x509 -in .secrets/tls.crt -noout -dates -ext subjectAltName
 ```
 
-Не отключайте validation через `-k`. Не удаляйте `.secrets` при повторном deploy: это заменит доверие клиентов. Истекшую пару следует заменить согласованно; неполный или несовпадающий комплект требует восстановления matching файлов. После обновления Secret снова выполните полный verify.
+Не отключайте validation через `-k`. Не удаляйте `.secrets` при повторном deploy: это заменит доверие клиентов. Deploy перевыпускает истекший leaf или leaf с остатком менее 30 дней, сохраняя ключ и CA; сертификат заменяется атомарно. Неполный комплект, неверный SAN, другая подпись или несовпадающие ключи требуют восстановления matching файлов. Сам CA не ротируется автоматически; перед его истечением нужна согласованная смена доверия. После обновления Secret снова выполните полный verify.
 
 ## Prometheus не видит Envoy
 
@@ -115,6 +115,6 @@ kubectl -n observability get pvc -o wide
 
 ## Локальные проверки и упаковка
 
-`make test` запускает Python tests, `make lint` — также shell/Python/YAML syntax, доступный shellcheck и Kustomize render. Для тестов упаковки нужен `pdfinfo` (`sudo apt-get install poppler-utils`) либо `pypdf` в отдельном окружении. `shellcheck` устанавливается отдельно; пропуск инструмента явно выводится. CI устанавливает оба системных инструмента, но статус реального CI run нужно фиксировать отдельно.
+`make test` запускает Python tests, `make lint` — также shell/Python/YAML syntax, доступный shellcheck и Kustomize render. `bootstrap.sh` устанавливает `shellcheck` и `poppler-utils`; вне Ubuntu для тестов упаковки допустим `pypdf` в отдельном окружении. Пропуск инструмента явно выводится. CI устанавливает необходимые инструменты, но статус реального CI run нужно фиксировать отдельно.
 
 Упаковка: `python3 scripts/package.py --repo-url "$PUBLIC_MAIN_URL" --name sel --passport docs/passport/Паспорт.pdf --output dist`. Нужна ссылка на настоящую опубликованную `main`. Упаковщик выполняет `git ls-remote` без credential helper и пользовательского Git config; закрытый репозиторий, отсутствие main или недоступная сеть останавливают сборку. После упаковки проверьте PDF визуально и загрузите `dist/sel.zip` на страницу задания самостоятельно.

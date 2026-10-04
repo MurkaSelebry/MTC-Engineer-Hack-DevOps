@@ -42,6 +42,60 @@ class AcceptanceTests(unittest.TestCase):
     def test_ready_pod_passes(self):
         verify.require_ready_pods([{"metadata": {"name": "app"}, "status": {"phase": "Running", "conditions": [{"type": "Ready", "status": "True"}]}}])
 
+    def bootstrap_fixture(self):
+        ready = [{"type": "Ready", "status": "True"}]
+        nodes = [{
+            "metadata": {"name": "node-a"},
+            "spec": {"podCIDR": "10.244.0.0/24", "podCIDRs": ["10.244.0.0/24"]},
+            "status": {"conditions": ready},
+        }]
+        pods = [
+            {"metadata": {"name": "demo", "namespace": "demo"}, "spec": {"hostNetwork": False},
+             "status": {"phase": "Running", "podIP": "10.244.0.20", "podIPs": [{"ip": "10.244.0.20"}], "conditions": ready}},
+            {"metadata": {"name": "calico-node", "namespace": "calico-system"}, "spec": {"hostNetwork": True},
+             "status": {"phase": "Running", "podIP": "192.168.1.10", "conditions": ready}},
+        ]
+        coredns = [{"metadata": {"name": "coredns", "namespace": "kube-system"},
+                    "status": {"phase": "Running", "conditions": ready}}]
+        calico = [pods[1]]
+        return nodes, pods, coredns, calico
+
+    def test_bootstrap_network_accepts_ready_components_and_expected_pod_ips(self):
+        nodes, pods, coredns, calico = self.bootstrap_fixture()
+        details = verify.require_cluster_network(nodes, pods, coredns, calico, "10.244.0.0/16")
+        self.assertEqual(details["checked_non_host_pods"], 1)
+        self.assertEqual(details["nodes"], 1)
+
+    def test_bootstrap_network_rejects_old_podman_cidr(self):
+        nodes, pods, coredns, calico = self.bootstrap_fixture()
+        pods[0]["status"]["podIP"] = "10.88.0.5"
+        pods[0]["status"]["podIPs"] = [{"ip": "10.88.0.5"}]
+        with self.assertRaisesRegex(ValueError, "outside expected Pod CIDR"):
+            verify.require_cluster_network(nodes, pods, coredns, calico, "10.244.0.0/16")
+
+    def test_bootstrap_network_rejects_unready_node_or_system_pods(self):
+        nodes, pods, coredns, calico = self.bootstrap_fixture()
+        nodes[0]["status"]["conditions"][0]["status"] = "False"
+        with self.assertRaisesRegex(ValueError, "node-a is not Ready"):
+            verify.require_cluster_network(nodes, pods, coredns, calico, "10.244.0.0/16")
+
+        nodes, pods, coredns, calico = self.bootstrap_fixture()
+        coredns[0]["status"]["conditions"] = []
+        with self.assertRaisesRegex(ValueError, "coredns is not Running and Ready"):
+            verify.require_cluster_network(nodes, pods, coredns, calico, "10.244.0.0/16")
+
+    def test_bootstrap_network_rejects_node_podcidr_drift_and_missing_pod_ip(self):
+        nodes, pods, coredns, calico = self.bootstrap_fixture()
+        nodes[0]["spec"] = {"podCIDR": "10.88.0.0/24", "podCIDRs": ["10.88.0.0/24"]}
+        with self.assertRaisesRegex(ValueError, "node Pod CIDR"):
+            verify.require_cluster_network(nodes, pods, coredns, calico, "10.244.0.0/16")
+
+        nodes, pods, coredns, calico = self.bootstrap_fixture()
+        pods[0]["status"].pop("podIP")
+        pods[0]["status"].pop("podIPs")
+        with self.assertRaisesRegex(ValueError, "has no pod IP"):
+            verify.require_cluster_network(nodes, pods, coredns, calico, "10.244.0.0/16")
+
     def test_prometheus_error_and_nonfinite_samples_fail(self):
         for payload in ({"status": "error"}, {"status": "success", "data": {"result": []}}, {"status": "success", "data": {"result": [{"value": [1, "NaN"]}]}}):
             with self.assertRaises(ValueError):

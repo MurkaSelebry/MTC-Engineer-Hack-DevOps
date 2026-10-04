@@ -21,6 +21,7 @@ import xml.etree.ElementTree as ET
 
 
 BODIES = {v: f"Hello World! version={v}\n" for v in ("v1", "v2")}
+DEFAULT_POD_CIDR = "10.244.0.0/16"
 
 
 def require_conditions(conditions, expected, generation):
@@ -40,6 +41,53 @@ def require_ready_pods(pods):
         ready = any(c.get("type") == "Ready" and c.get("status") == "True" for c in status.get("conditions", []))
         if pod.get("metadata", {}).get("deletionTimestamp") or status.get("phase") != "Running" or not ready:
             raise ValueError(f"pod {pod['metadata']['name']} is not Running and Ready")
+
+
+def require_cluster_network(nodes, pods, coredns_pods, calico_pods, pod_cidr):
+    expected = ipaddress.ip_network(pod_cidr)
+    if not nodes:
+        raise ValueError("cluster has no nodes")
+    for node in nodes:
+        metadata, status = node.get("metadata", {}), node.get("status", {})
+        name = metadata.get("name", "unnamed")
+        ready = next((condition for condition in status.get("conditions", [])
+                      if condition.get("type") == "Ready"), {})
+        if metadata.get("deletionTimestamp") or ready.get("status") != "True":
+            raise ValueError(f"node {name} is not Ready")
+        configured = node.get("spec", {}).get("podCIDRs", [])
+        if not configured and node.get("spec", {}).get("podCIDR"):
+            configured = [node["spec"]["podCIDR"]]
+        if not configured:
+            raise ValueError(f"node {name} has no assigned Pod CIDR")
+        for cidr in configured:
+            network = ipaddress.ip_network(cidr)
+            if network.version != expected.version or not network.subnet_of(expected):
+                raise ValueError(f"node Pod CIDR {network} is outside expected Pod CIDR {expected}")
+
+    require_ready_pods(coredns_pods)
+    require_ready_pods(calico_pods)
+    checked = 0
+    for pod in pods:
+        if pod.get("spec", {}).get("hostNetwork"):
+            continue
+        status = pod.get("status", {})
+        if status.get("phase") in ("Succeeded", "Failed"):
+            continue
+        metadata = pod.get("metadata", {})
+        identity = f"{metadata.get('namespace', 'default')}/{metadata.get('name', 'unnamed')}"
+        addresses = [item.get("ip") for item in status.get("podIPs", []) if item.get("ip")]
+        if not addresses and status.get("podIP"):
+            addresses = [status["podIP"]]
+        if not addresses:
+            raise ValueError(f"pod {identity} has no pod IP")
+        for address in addresses:
+            if ipaddress.ip_address(address) not in expected:
+                raise ValueError(f"pod {identity} IP {address} is outside expected Pod CIDR {expected}")
+        checked += 1
+    if not checked:
+        raise ValueError("no active non-host-network pods found")
+    return {"nodes": len(nodes), "pod_cidr": str(expected), "checked_non_host_pods": checked,
+            "coredns_pods": len(coredns_pods), "calico_pods": len(calico_pods)}
 
 
 def prom_value(payload):
@@ -217,6 +265,7 @@ class Verification:
         self.args = args
         self.results = []
         self.host = args.host or os.environ.get("VM_IP")
+        self.pod_cidr = getattr(args, "pod_cidr", DEFAULT_POD_CIDR)
 
     def check(self, name, callback):
         start = time.monotonic()
@@ -264,6 +313,13 @@ class Verification:
         for ds in daemonsets:
             require_rollout(ds)
         return counts
+
+    def cluster_network(self):
+        nodes = kubectl("get", "nodes")["items"]
+        pods = kubectl("get", "pods", "-A")["items"]
+        coredns = kubectl("-n", "kube-system", "get", "pods", "-l", "k8s-app=kube-dns")["items"]
+        calico = kubectl("-n", "calico-system", "get", "pods")["items"]
+        return require_cluster_network(nodes, pods, coredns, calico, self.pod_cidr)
 
     def gateway(self):
         gateway = kubectl("-n", "demo", "get", "gateway", "demo")
@@ -433,7 +489,7 @@ class Verification:
 
     def run(self):
         if self.check("prerequisites", self.prerequisites):
-            for name, callback in (("namespace-pods-and-workloads", self.pods), ("gateway-and-route-conditions", self.gateway), ("http-https-paths", self.routes), ("tls-rejects-wrong-identity-and-ca", self.tls_negative), ("canary-weighted-distribution", self.canary), ("prometheus-envoy-counter-growth", self.metrics), ("loki-request-stdout-and-stderr", self.logs)):
+            for name, callback in (("node-cni-dns-readiness", self.cluster_network), ("namespace-pods-and-workloads", self.pods), ("gateway-and-route-conditions", self.gateway), ("http-https-paths", self.routes), ("tls-rejects-wrong-identity-and-ca", self.tls_negative), ("canary-weighted-distribution", self.canary), ("prometheus-envoy-counter-growth", self.metrics), ("loki-request-stdout-and-stderr", self.logs)):
                 self.check(name, callback)
         return self.reports()
 
@@ -443,6 +499,7 @@ def main():
     parser.add_argument("--host", help="NodePort host/IP (default VM_IP or first node InternalIP)")
     parser.add_argument("--quick", action="store_true", help="400 canary requests and shorter metric/log deadlines; all checks remain enabled")
     parser.add_argument("--ca", type=Path, default=Path(".secrets/ca.crt"))
+    parser.add_argument("--pod-cidr", default=DEFAULT_POD_CIDR, help="Expected IPv4/IPv6 network for every active non-host-network Pod")
     parser.add_argument("--report", type=Path, default=Path("artifacts/verification.json"))
     parser.add_argument("--junit", type=Path, default=Path("artifacts/verification.xml"))
     return Verification(parser.parse_args()).run()

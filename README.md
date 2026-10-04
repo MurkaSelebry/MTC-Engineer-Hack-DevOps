@@ -20,7 +20,7 @@
 | Loki | chart 18.13.7, приложение 3.7.8 |
 | Nginx | nginx-unprivileged 1.30.5-alpine3.24, образ закреплен digest |
 | Fluentd | 1.19.4; Loki plugin 1.3.0, CRI parser 0.1.1, concat 2.6.2 |
-| Podman / Ansible | пакет 4.9.3+ds1-1ubuntu0.2 / ansible-core 2.19.3 |
+| Podman / Ansible | пакет 4.9.3+ds1-1ubuntu0.2 / ansible-core 2.19.13 |
 
 Версии и SHA256 архивов: [versions.yaml](versions.yaml); Python-зависимости: [requirements.lock](requirements.lock); Ruby-зависимости сборщика: [Gemfile.lock](images/fluentd/Gemfile.lock). Образы приложения и Fluentd base закреплены digest в исходных манифестах/Dockerfile.
 
@@ -54,7 +54,7 @@ make verify VM_IP="$VM_IP"
 ./scripts/verify.sh --host "$VM_IP" --quick
 ```
 
-Разрешите TCP 30080/30443 от проверяющего клиента; SSH — только от администратора. Не открывайте Prometheus, Loki или Grafana в Интернет. API server использует адрес узла; необходимость доступа к 6443 зависит от вашей административной сети. Публичный IP и private IP могут различаться. Команда с VM проверяет доступ с VM; внешнюю доступность подтвердите отдельным `curl` с другой машины.
+Разрешите TCP 30080/30443 от проверяющего клиента; SSH — только от администратора. Prometheus, Loki и Grafana доступны через административный SSH tunnel. Установка защищает TCP 6443/10250/2379/2380 отдельной firewall-цепочкой: разрешены loopback, адрес узла и Pod CIDR; правило восстанавливается при deploy и загрузке ОС. Для удаленного kubectl используйте SSH. Публичный IP и private IP могут различаться. Команда с VM проверяет доступ с VM; внешнюю доступность подтвердите отдельным `curl` с другой машины.
 
 ## Приложение и Gateway API
 
@@ -110,7 +110,7 @@ PromQL для targets и запросов:
 
 ```promql
 up{job="envoy-proxy"}
-sum(rate(envoy_http_downstream_rq_total[5m]))
+sum(rate(envoy_http_downstream_rq_total{job="envoy-proxy",envoy_http_conn_manager_prefix=~"http-10080|https-10443"}[5m]))
 kube_deployment_status_replicas_available{namespace="demo"}
 ```
 
@@ -139,11 +139,19 @@ Fluentd читает CRI-логи только контейнеров прило
 - Один узел и локальные PV **не обеспечивают HA**. Реплики защищают от сбоя отдельного Pod, но не от потери VM.
 - PV: Prometheus 5 GiB, Loki 8 GiB, Grafana 1 GiB, `mtc-local`, `Retain`, привязка к узлу. Fluentd имеет persistent hostPath и буфер 512 MiB. Емкость PV не является квотой файловой системы.
 - Prometheus: retention 24h / 3 GB блоков; Loki: 24h с асинхронным удалением. Retention не защищает от заполнения диска при интенсивном потоке. Требуются контроль свободного места и достаточный запас.
-- Локальный CA нужно явно доверить клиенту. Автоматическое продление сертификатов не реализовано.
+- Локальный CA нужно явно доверить клиенту. При deploy leaf-сертификат с остатком менее 30 дней перевыпускается с тем же ключом и CA; постоянного планировщика продления нет. Ротация самого CA выполняется явно.
 - NetworkPolicy ограничивает вход к приложению Envoy-подами и запрещает egress приложения. Проверка YAML не заменяет проверку enforcement; результаты сетевых и аварийных испытаний относятся к протоколу приемки.
 - CI выполняет статические проверки и unit tests. Опциональный ручной integration job требует отдельного заранее настроенного self-hosted runner; такой runner не входит в установку. Наличие workflow не является доказательством выполненного CI.
 
-[Архитектура](docs/architecture.md) · [Runbook](docs/runbook.md) · [Протокол испытаний](docs/validation.md)
+[Архитектура](docs/architecture.md) · [Runbook](docs/runbook.md) · [Протокол испытаний](docs/validation.md) · [Обоснование и источники](docs/research.md)
+
+Дополнительное испытание на выделенном демонстрационном стенде временно останавливает Loki, перезапускает Fluentd и удаляет один Pod приложения. Оно проверяет NetworkPolicy, восстановление Pod и доставку 100 access/error пар из очереди после сбоя:
+
+```bash
+python3 scripts/recovery-test.py --allow-disruption --host "$VM_IP"
+```
+
+Loki восстанавливается в `finally`; результат сохраняется в `artifacts/recovery.json`. Запускайте этот сценарий отдельно от deploy и обычной приемки.
 
 ## Подготовка сдачи
 

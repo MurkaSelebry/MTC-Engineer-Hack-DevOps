@@ -25,7 +25,7 @@ jobs:
       - uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4
         with:
           version: v1.35.9
-      - run: python -m pip install PyYAML==6.0.3
+      - run: 'python -m pip install --require-hashes --only-binary=:all: -r requirements.lock'
       - run: sudo apt-get update && sudo apt-get install -y shellcheck poppler-utils
       - run: ./scripts/lint.sh
   integration:
