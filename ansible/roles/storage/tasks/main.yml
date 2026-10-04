@@ -1,0 +1,22 @@
+---
+- name: Create persistent directories with component ownership
+  ansible.builtin.file:
+    path: "{{ storage_root }}/{{ item.name }}"
+    state: directory
+    owner: "{{ item.uid }}"
+    group: "{{ item.gid }}"
+    mode: '0770'
+  loop:
+    - {name: prometheus, uid: '1000', gid: '2000'}
+    - {name: loki, uid: '10001', gid: '10001'}
+    - {name: grafana, uid: '472', gid: '472'}
+    - {name: fluentd, uid: '0', gid: '0'}
+- name: Render node-bound local volumes
+  ansible.builtin.template:
+    src: volumes.yaml.j2
+    dest: /var/cache/mtc-hack/volumes.yaml
+    mode: '0644'
+- name: Apply local volumes without deleting bound data
+  ansible.builtin.command: kubectl apply -f /var/cache/mtc-hack/volumes.yaml
+  register: volume_apply
+  changed_when: "'created' in volume_apply.stdout or 'configured' in volume_apply.stdout"

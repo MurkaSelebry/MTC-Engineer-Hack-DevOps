@@ -1,0 +1,10 @@
+---
+- name: Install and reconcile the application platform
+  ansible.builtin.command:
+    argv: [bash, "{{ project_root }}/scripts/deploy-platform.sh"]
+    chdir: "{{ project_root }}"
+  environment:
+    KUBECONFIG: "{{ kubeconfig }}"
+    DEPLOY_USER: "{{ deploy_user }}"
+  register: platform_result
+  changed_when: "'configured' in platform_result.stdout or 'created' in platform_result.stdout or 'upgraded' in platform_result.stdout"

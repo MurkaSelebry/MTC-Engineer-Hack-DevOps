@@ -1,0 +1,105 @@
+# prometheus-community/kube-prometheus-stack 91.9.0.
+# Keep application/node metrics and Grafana; omit inaccessible kubeadm endpoints.
+alertmanager:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+defaultRules:
+  disabled:
+    PrometheusNotConnectedToAlertmanagers: true
+  rules:
+    etcd: false
+    kubeControllerManager: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+    kubeProxy: false
+    alertmanager: false
+prometheusOperator:
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+prometheus:
+  prometheusSpec:
+    replicas: 1
+    retention: 24h
+    retentionSize: 3GB
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    resources:
+      requests: {cpu: 250m, memory: 768Mi}
+      limits: {cpu: '2', memory: 2Gi}
+    serviceMonitorSelector:
+      matchLabels: {release: monitoring}
+    podMonitorSelector:
+      matchLabels: {release: monitoring}
+    ruleSelector:
+      matchLabels: {release: monitoring}
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: mtc-local
+          accessModes: [ReadWriteOnce]
+          selector:
+            matchLabels:
+              mtc-hack/component: prometheus
+          resources:
+            requests:
+              storage: 5Gi
+grafana:
+  # Built-in Prometheus/Loki panels suffice; prevent unpinned startup downloads.
+  grafana.ini:
+    plugins:
+      preinstall_disabled: true
+      preinstall_auto_update: false
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+      check_for_plugin_updates: false
+  defaultDashboardsTimezone: Europe/Moscow
+  service:
+    type: ClusterIP
+  deploymentStrategy:
+    type: Recreate
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: mtc-local
+    size: 1Gi
+    selectorLabels:
+      mtc-hack/component: grafana
+  resources:
+    requests: {cpu: 100m, memory: 192Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  sidecar:
+    datasources:
+      alertmanager:
+        enabled: false
+    resources:
+      requests: {cpu: 10m, memory: 32Mi}
+      limits: {cpu: 100m, memory: 128Mi}
+    dashboards:
+      enabled: true
+      searchNamespace: observability
+  additionalDataSources:
+    - name: Loki
+      uid: loki
+      type: loki
+      access: proxy
+      url: http://loki.observability.svc.cluster.local:3100
+      isDefault: false
+      jsonData:
+        maxLines: 1000
+kube-state-metrics:
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+prometheus-node-exporter:
+  resources:
+    requests: {cpu: 25m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 64Mi}

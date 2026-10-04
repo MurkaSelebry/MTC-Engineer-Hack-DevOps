@@ -1,0 +1,124 @@
+---
+- name: Ensure protected Kubernetes configuration directory
+  ansible.builtin.file:
+    path: /etc/kubernetes
+    state: directory
+    mode: '0755'
+- name: Render proposed kubeadm configuration without replacing active baseline
+  ansible.builtin.template:
+    src: kubeadm.yaml.j2
+    dest: /var/cache/mtc-hack/kubeadm-desired.yaml
+    mode: '0600'
+- name: Check whether cluster is initialized
+  ansible.builtin.stat:
+    path: "{{ kubeconfig }}"
+  register: kubeconfig_stat
+- name: Compare proposed configuration with the original cluster baseline
+  ansible.builtin.command:
+    argv: [cmp, -s, /etc/kubernetes/mtc-kubeadm.yaml, /var/cache/mtc-hack/kubeadm-desired.yaml]
+  register: kubeadm_comparison
+  when: kubeconfig_stat.stat.exists
+  changed_when: false
+  failed_when: false
+- name: Refuse silent reconfiguration of an existing cluster
+  ansible.builtin.assert:
+    that: not kubeconfig_stat.stat.exists or kubeadm_comparison.rc == 0
+    fail_msg: Existing cluster differs from this configuration. Review explicit migration; automatic reset is forbidden.
+- name: Preserve the initial cluster configuration
+  ansible.builtin.copy:
+    src: /var/cache/mtc-hack/kubeadm-desired.yaml
+    dest: /etc/kubernetes/mtc-kubeadm.yaml
+    remote_src: true
+    mode: '0600'
+  when: not kubeconfig_stat.stat.exists
+- name: Initialize kubeadm once
+  ansible.builtin.command:
+    argv: [timeout, '900', kubeadm, init, --config, /etc/kubernetes/mtc-kubeadm.yaml, --skip-token-print]
+  when: not kubeconfig_stat.stat.exists
+  no_log: true
+  changed_when: true
+- name: Wait for Kubernetes API
+  ansible.builtin.command: kubectl --request-timeout=10s get --raw=/readyz
+  register: api_ready
+  until: api_ready.rc == 0 and api_ready.stdout == 'ok'
+  retries: 30
+  delay: 5
+  changed_when: false
+- name: Check kubeadm initialization completion
+  ansible.builtin.command: kubectl --request-timeout=10s -n kube-system get configmap kubeadm-config
+  register: kubeadm_complete
+  failed_when: false
+  changed_when: false
+- name: Stop safely after an interrupted init instead of assuming completion
+  ansible.builtin.assert:
+    that: kubeadm_complete.rc == 0
+    fail_msg: Kubernetes API is reachable but kubeadm init did not complete. Inspect kubeadm and kubelet logs; no automatic reset or blind phase replay is performed.
+- name: Verify server version is the pinned version
+  ansible.builtin.command: kubectl version -o json
+  register: cluster_version
+  changed_when: false
+- name: Refuse unsupported existing Kubernetes version
+  ansible.builtin.assert:
+    that: (cluster_version.stdout | from_json).serverVersion.gitVersion == 'v' + kubernetes_version
+- name: Check control-plane scheduling taint
+  ansible.builtin.command:
+    argv: [kubectl, get, node, "{{ ansible_facts.hostname }}", -o, json]
+  register: node_before
+  changed_when: false
+- name: Allow demo workloads on the single control-plane node
+  ansible.builtin.command: "kubectl taint node {{ ansible_facts.hostname }} node-role.kubernetes.io/control-plane:NoSchedule-"
+  when: (node_before.stdout | from_json).spec.taints | default([]) | selectattr('key', 'equalto', 'node-role.kubernetes.io/control-plane') | list | length > 0
+  changed_when: true
+- name: Download pinned Calico CRDs
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/projectcalico/calico/v{{ calico_version }}/manifests/v1_crd_projectcalico_org.yaml"
+    dest: /var/cache/mtc-hack/calico-crds.yaml
+    checksum: "sha256:{{ calico_crds_sha256 }}"
+    mode: '0644'
+- name: Download pinned Calico operator
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/projectcalico/calico/v{{ calico_version }}/manifests/tigera-operator.yaml"
+    dest: /var/cache/mtc-hack/calico-operator.yaml
+    checksum: "sha256:{{ calico_operator_sha256 }}"
+    mode: '0644'
+- name: Apply Calico CRDs and operator
+  ansible.builtin.command: "kubectl apply --server-side -f {{ item }}"
+  loop: [/var/cache/mtc-hack/calico-crds.yaml, /var/cache/mtc-hack/calico-operator.yaml]
+  register: calico_apply
+  changed_when: "'created' in calico_apply.stdout or 'configured' in calico_apply.stdout"
+- name: Wait for Calico Installation API
+  ansible.builtin.command: kubectl wait --for=condition=Established crd/installations.operator.tigera.io --timeout=120s
+  changed_when: false
+- name: Render network configuration
+  ansible.builtin.template:
+    src: calico.yaml.j2
+    dest: /var/cache/mtc-hack/calico-installation.yaml
+    mode: '0644'
+- name: Configure Calico VXLAN
+  ansible.builtin.command: kubectl apply --server-side -f /var/cache/mtc-hack/calico-installation.yaml
+  register: calico_install
+  changed_when: "'created' in calico_install.stdout or 'configured' in calico_install.stdout"
+- name: Wait for node networking
+  ansible.builtin.command: kubectl wait --for=condition=Ready nodes --all --timeout=600s
+  changed_when: false
+- name: Wait for cluster DNS
+  ansible.builtin.command: kubectl -n kube-system rollout status deployment/coredns --timeout=300s
+  changed_when: false
+- name: Find deploy user home
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ deploy_user }}"
+- name: Create deploy user kube directory
+  ansible.builtin.file:
+    path: "{{ ansible_facts.getent_passwd[deploy_user][4] }}/.kube"
+    state: directory
+    owner: "{{ deploy_user }}"
+    mode: '0700'
+- name: Copy kubeconfig with restrictive permissions
+  ansible.builtin.copy:
+    src: "{{ kubeconfig }}"
+    dest: "{{ ansible_facts.getent_passwd[deploy_user][4] }}/.kube/config"
+    remote_src: true
+    owner: "{{ deploy_user }}"
+    mode: '0600'
+  no_log: true

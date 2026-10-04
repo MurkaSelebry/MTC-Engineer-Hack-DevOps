@@ -1,0 +1,51 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-observability
+  namespace: observability
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: demo.availability
+      rules:
+        - alert: DemoDeploymentUnavailable
+          expr: kube_deployment_status_replicas_available{namespace="demo",deployment=~"demo-v[12]"} < 1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: 'Demo deployment {{ $labels.deployment }} has no available replicas'
+            description: 'Inspect rollout, readiness probes, Events and demo stderr logs.'
+        - alert: EnvoyMetricsMissing
+          expr: absent(up{job="envoy-proxy"}) or max(up{job="envoy-proxy"}) == 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: Envoy proxy metrics are unavailable
+            description: Check PodMonitor selection, proxy metrics port 19001 and NetworkPolicies.
+        - alert: DemoGatewayServerErrors
+          expr: sum(rate(envoy_http_downstream_rq_xx{job="envoy-proxy",envoy_http_conn_manager_prefix=~"http-10080|https-10443",envoy_response_code_class="5"}[5m])) / clamp_min(sum(rate(envoy_http_downstream_rq_total{job="envoy-proxy",envoy_http_conn_manager_prefix=~"http-10080|https-10443"}[5m])), 0.01) > 0.05
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: More than 5 percent of gateway requests return server errors
+            description: Inspect Envoy endpoints, demo readiness and access/error logs.
+        - alert: ObservabilityVolumeLowSpace
+          expr: kubelet_volume_stats_available_bytes{namespace="observability"} / kubelet_volume_stats_capacity_bytes{namespace="observability"} < 0.15
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: 'Observability volume {{ $labels.persistentvolumeclaim }} has less than 15 percent free'
+            description: Check retention and disk usage before ingestion is blocked.
+        - alert: FluentdUnavailable
+          expr: kube_daemonset_status_number_unavailable{namespace="observability",daemonset="fluentd"} > 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: Fluentd is unavailable on a node
+            description: Inspect Fluentd pod logs, persistent buffer and Loki readiness.

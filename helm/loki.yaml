@@ -1,0 +1,70 @@
+# grafana-community/loki 18.13.7 (Loki 3.7.8). Single-node laboratory.
+deploymentMode: Monolithic
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+  schemaConfig:
+    configs:
+      - from: '2024-04-01'
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+  limits_config:
+    retention_period: 24h
+    ingestion_rate_mb: 2
+    ingestion_burst_size_mb: 4
+    max_query_parallelism: 2
+    split_queries_by_interval: 15m
+  compactor:
+    working_directory: /var/loki/compactor
+    retention_enabled: true
+    retention_delete_delay: 1h
+    retention_delete_worker_count: 2
+    delete_request_store: filesystem
+  querier:
+    max_concurrent: 2
+singleBinary:
+  replicas: 1
+  sidecar: false
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: '1', memory: 1Gi}
+  persistence:
+    enabled: true
+    size: 8Gi
+    storageClass: mtc-local
+    selector:
+      matchLabels:
+        mtc-hack/component: loki
+    whenScaled: Retain
+    whenDeleted: Retain
+  podDisruptionBudget:
+    enabled: false
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+gateway:
+  enabled: false
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+lokiCanary:
+  enabled: false
+test:
+  enabled: false
+monitoring:
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: monitoring
+    interval: 30s

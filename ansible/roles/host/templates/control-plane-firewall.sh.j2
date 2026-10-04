@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Only this named chain is managed. SSH and application traffic are untouched.
+set -Eeuo pipefail
+chain=MTC_CONTROL_PLANE
+iptables -w -nL "$chain" >/dev/null 2>&1 || iptables -w -N "$chain"
+iptables -w -F "$chain"
+iptables -w -A "$chain" -i lo -j RETURN
+iptables -w -A "$chain" -s '{{ ansible_facts.default_ipv4.address }}/32' -j RETURN
+iptables -w -A "$chain" -s '{{ pod_cidr }}' -j RETURN
+iptables -w -A "$chain" -p tcp -j REJECT --reject-with tcp-reset
+while iptables -w -C INPUT -p tcp -m multiport --dports 6443,10250,2379,2380 -j "$chain" 2>/dev/null; do
+  iptables -w -D INPUT -p tcp -m multiport --dports 6443,10250,2379,2380 -j "$chain"
+done
+iptables -w -I INPUT 1 -p tcp -m multiport --dports 6443,10250,2379,2380 -j "$chain"
+# The supported cluster uses IPv4 only; do not leave kubelet's IPv6 socket public.
+ip6tables -w -nL "$chain" >/dev/null 2>&1 || ip6tables -w -N "$chain"
+ip6tables -w -F "$chain"
+ip6tables -w -A "$chain" -i lo -j RETURN
+ip6tables -w -A "$chain" -p tcp -j REJECT --reject-with tcp-reset
+while ip6tables -w -C INPUT -p tcp -m multiport --dports 6443,10250,2379,2380 -j "$chain" 2>/dev/null; do
+  ip6tables -w -D INPUT -p tcp -m multiport --dports 6443,10250,2379,2380 -j "$chain"
+done
+ip6tables -w -I INPUT 1 -p tcp -m multiport --dports 6443,10250,2379,2380 -j "$chain"

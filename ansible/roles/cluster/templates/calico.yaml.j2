@@ -1,0 +1,22 @@
+apiVersion: operator.tigera.io/v1
+kind: Installation
+metadata:
+  name: default
+spec:
+  calicoNetwork:
+    bgp: Disabled
+    nodeAddressAutodetectionV4:
+      kubernetes: NodeInternalIP
+    ipPools:
+      - name: default-ipv4-ippool
+        # The operator defaults this atomic list. Include its pinned-version
+        # defaults so a second server-side apply does not fight its ownership.
+        allowedUses: [Workload, Tunnel]
+        assignmentMode: Automatic
+        disableBGPExport: false
+        disableNewAllocations: false
+        blockSize: 26
+        cidr: "{{ pod_cidr }}"
+        encapsulation: VXLAN
+        natOutgoing: Enabled
+        nodeSelector: all()

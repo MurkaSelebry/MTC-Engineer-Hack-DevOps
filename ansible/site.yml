@@ -1,0 +1,50 @@
+---
+- name: Reproducible MTC single-node Kubernetes platform
+  hosts: all
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../versions.yaml
+  vars:
+    project_root: "{{ playbook_dir | dirname }}"
+    kubeconfig: /etc/kubernetes/admin.conf
+    deploy_user: "{{ lookup('env', 'USER') }}"
+  environment:
+    KUBECONFIG: "{{ kubeconfig }}"
+  pre_tasks:
+    - name: Require the tested Ubuntu profile
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == 'Ubuntu'
+          - ansible_facts.distribution_version == '24.04'
+          - ansible_facts.architecture == 'x86_64'
+        fail_msg: Only Ubuntu 24.04 amd64 is supported by this dependency lock.
+    - name: Check resources and non-overlapping networks before mutation
+      ansible.builtin.command:
+        argv: [python3, "{{ project_root }}/scripts/preflight.py", --pod-cidr, "{{ pod_cidr }}", --service-cidr, "{{ service_cidr }}"]
+      changed_when: false
+    - name: Detect an existing cluster before changing the host
+      ansible.builtin.stat:
+        path: "{{ kubeconfig }}"
+      register: existing_cluster
+    - name: Read the immutable initial configuration before host changes
+      ansible.builtin.slurp:
+        src: /etc/kubernetes/mtc-kubeadm.yaml
+      register: initial_config
+      when: existing_cluster.stat.exists
+      no_log: true
+    - name: Reject cluster drift before changing runtime or firewall
+      ansible.builtin.assert:
+        that:
+          - (initial_config.content | b64decode | trim) == (lookup('template', 'roles/cluster/templates/kubeadm.yaml.j2') | trim)
+        fail_msg: Existing cluster configuration differs. An explicit migration is required; host and cluster were not changed.
+      when: existing_cluster.stat.exists
+  roles:
+    - role: host
+      tags: [cluster]
+    - role: cluster
+      tags: [cluster]
+    - role: storage
+      tags: [platform]
+    - role: platform
+      tags: [platform]

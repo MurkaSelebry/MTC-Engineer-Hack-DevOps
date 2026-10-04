@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: fluentd
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fluentd
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fluentd
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: fluentd
+          image: mtc-hack/fluentd:1.0.0
+          imagePullPolicy: Never
+          securityContext:
+            # Kubelet log files and persisted position/buffer directory need root.
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 384Mi}
+          ports:
+            - name: monitor
+              containerPort: 24220
+          readinessProbe:
+            httpGet:
+              path: /api/plugins.json
+              port: monitor
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/plugins.json
+              port: monitor
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          volumeMounts:
+            - name: config
+              mountPath: /fluentd/etc
+              readOnly: true
+            - name: logs
+              mountPath: /var/log
+              readOnly: true
+            - name: state
+              mountPath: /var/lib/fluentd
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: fluentd-config
+        - name: logs
+          hostPath:
+            path: /var/log
+            type: Directory
+        - name: state
+          hostPath:
+            path: /var/lib/mtc-hack/fluentd
+            type: DirectoryOrCreate
+        - name: tmp
+          emptyDir:
+            sizeLimit: 32Mi

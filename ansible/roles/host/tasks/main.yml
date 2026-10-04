@@ -1,0 +1,158 @@
+---
+- name: Install pinned runtime and build tools
+  ansible.builtin.apt:
+    name:
+      - "containerd={{ containerd_package_version }}"
+      - "podman={{ podman_package_version }}"
+      - containernetworking-plugins
+      - conntrack
+      - socat
+      - iptables
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+- name: Remove the unused legacy Podman CNI network before kubeadm starts
+  # Ubuntu's Podman uses Netavark but ships this old CNI bridge. Otherwise
+  # containerd selects it before Calico exists and bootstraps pods on 10.88/16.
+  ansible.builtin.file:
+    path: /etc/cni/net.d/87-podman-bridge.conflist
+    state: absent
+- name: Persist required kernel modules
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/mtc-kubernetes.conf
+    content: "overlay\nbr_netfilter\n"
+    mode: '0644'
+- name: Load kernel modules
+  ansible.builtin.command: "modprobe {{ item }}"
+  loop: [overlay, br_netfilter]
+  changed_when: false
+- name: Persist forwarding and bridge settings
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-mtc-kubernetes.conf
+    content: |
+      net.ipv4.ip_forward = 1
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+    mode: '0644'
+  register: sysctl_config
+- name: Apply sysctl settings
+  ansible.builtin.command: sysctl --system
+  changed_when: sysctl_config.changed
+- name: Disable active swap for kubelet
+  ansible.builtin.command: swapoff -a
+  when: ansible_facts.swaptotal_mb | int > 0
+  changed_when: true
+- name: Disable persistent swap entries
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^(?!#)(.*\s+swap\s+.*)$'
+    replace: '# disabled by mtc-hack: \1'
+- name: Ensure containerd config directory
+  ansible.builtin.file:
+    path: /etc/containerd
+    state: directory
+    mode: '0755'
+- name: Configure containerd v2 with CRI and systemd cgroups
+  ansible.builtin.copy:
+    dest: /etc/containerd/config.toml
+    mode: '0644'
+    content: |
+      version = 3
+      [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc]
+        runtime_type = 'io.containerd.runc.v2'
+      [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc.options]
+        SystemdCgroup = true
+  register: containerd_config
+- name: Enable containerd and apply config only when changed
+  ansible.builtin.systemd_service:
+    name: containerd
+    state: "{{ 'restarted' if containerd_config.changed else 'started' }}"
+    enabled: true
+- name: Create apt keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+- name: Download Kubernetes repository signing key
+  ansible.builtin.get_url:
+    url: https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key
+    checksum: "sha256:{{ kubernetes_apt_key_sha256 }}"
+    dest: /etc/apt/keyrings/kubernetes.asc
+    mode: '0644'
+    timeout: 30
+- name: Configure versioned Kubernetes repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/kubernetes.list
+    content: "deb [signed-by=/etc/apt/keyrings/kubernetes.asc] https://pkgs.k8s.io/core:/stable:/v1.35/deb/ /\n"
+    mode: '0644'
+- name: Install exact Kubernetes packages
+  ansible.builtin.apt:
+    name:
+      - "kubeadm={{ kubernetes_package_version }}"
+      - "kubelet={{ kubernetes_package_version }}"
+      - "kubectl={{ kubernetes_package_version }}"
+    state: present
+    update_cache: true
+- name: Hold Kubernetes, runtime and builder versions
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop: [kubeadm, kubelet, kubectl, containerd, podman]
+- name: Enable kubelet service
+  ansible.builtin.systemd_service:
+    name: kubelet
+    state: started
+    enabled: true
+- name: Install firewall limited to Kubernetes administrative ports
+  ansible.builtin.template:
+    src: control-plane-firewall.sh.j2
+    dest: /usr/local/sbin/mtc-control-plane-firewall
+    mode: '0750'
+  register: firewall_script
+- name: Persist the dedicated administrative-port firewall
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/mtc-control-plane-firewall.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=MTC demo control-plane port protection
+      Wants=network-online.target
+      After=network-online.target
+      Before=kubelet.service
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/mtc-control-plane-firewall
+      RemainAfterExit=yes
+      [Install]
+      WantedBy=multi-user.target
+  register: firewall_unit
+- name: Apply and enable administrative-port protection
+  ansible.builtin.systemd_service:
+    name: mtc-control-plane-firewall
+    # Reconcile rules even when a separate firewall reload removed our chain.
+    state: restarted
+    enabled: true
+    daemon_reload: true
+- name: Ensure artifact cache
+  ansible.builtin.file:
+    path: /var/cache/mtc-hack
+    state: directory
+    mode: '0755'
+- name: Download checksum-verified Helm archive
+  ansible.builtin.get_url:
+    url: "https://get.helm.sh/helm-v{{ helm_version }}-linux-amd64.tar.gz"
+    dest: "/var/cache/mtc-hack/helm-{{ helm_version }}.tar.gz"
+    checksum: "sha256:{{ helm_sha256 }}"
+    mode: '0644'
+    timeout: 60
+- name: Extract pinned Helm
+  ansible.builtin.unarchive:
+    src: "/var/cache/mtc-hack/helm-{{ helm_version }}.tar.gz"
+    dest: /var/cache/mtc-hack
+    remote_src: true
+- name: Install Helm binary
+  ansible.builtin.copy:
+    src: /var/cache/mtc-hack/linux-amd64/helm
+    dest: /usr/local/bin/helm
+    mode: '0755'
+    remote_src: true
