@@ -30,6 +30,13 @@ class PasswordTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.path = Path(self.tmp.name) / 'password'
+        self.real_refresh = self.helper.refresh_grafana_env
+        rollout = patch.object(self.helper, 'refresh_grafana_env', create=True)
+        self.rollout = rollout.start()
+        self.addCleanup(rollout.stop)
+        sleep = patch.object(self.helper, 'wait_for_lockout', create=True)
+        self.wait = sleep.start()
+        self.addCleanup(sleep.stop)
 
     def server(self, password, status=200):
         state = {'password': password, 'changes': 0, 'gets': 0}
@@ -140,6 +147,80 @@ class PasswordTests(unittest.TestCase):
             secret.assert_not_called()
         self.assertEqual(state['gets'], 1)
         self.assertEqual(self.path.read_bytes(), b'password123\n')
+
+    def test_clean_file_refreshes_stale_sidecar_before_authentication(self):
+        self.path.write_bytes(b'password123')
+        url, state = self.server(b'password123')
+        def refresh(password):
+            self.assertEqual(password, b'password123')
+            self.assertEqual(state['gets'], 0)
+        self.rollout.side_effect = refresh
+        with patch.object(self.helper, 'reconcile_secret'):
+            self.helper.migrate(self.path, url)
+        self.rollout.assert_called_once_with(b'password123')
+
+    def test_newline_migration_refreshes_sidecar_only_after_database_and_file(self):
+        self.path.write_bytes(b'password123\n')
+        url, state = self.server(b'password123\n')
+        def refresh(password):
+            self.assertEqual(self.path.read_bytes(), password)
+            self.assertEqual(state['password'], password)
+            self.assertEqual(state['changes'], 1)
+        self.rollout.side_effect = refresh
+        with patch.object(self.helper, 'reconcile_secret'):
+            self.helper.migrate(self.path, url)
+        self.rollout.assert_called_once_with(b'password123')
+
+    def test_recovers_from_persisted_lockout_once_sidecars_are_current(self):
+        self.path.write_bytes(b'password123')
+        url, state = self.server(b'locked')
+        self.wait.side_effect = lambda: state.update(password=b'password123')
+        with patch.object(self.helper, 'reconcile_secret'):
+            self.helper.migrate(self.path, url)
+        self.wait.assert_called_once_with()
+        self.assertEqual(state['changes'], 0)
+        self.assertEqual(state['gets'], 2)
+
+    def test_interrupted_final_rollout_is_repaired_before_next_auth(self):
+        self.path.write_bytes(b'password123\n')
+        url, state = self.server(b'password123\n')
+        self.rollout.side_effect = ValueError('rollout interrupted')
+        with patch.object(self.helper, 'reconcile_secret'):
+            with self.assertRaisesRegex(ValueError, 'interrupted'):
+                self.helper.migrate(self.path, url)
+        self.assertEqual(state['password'], b'password123')
+        self.assertEqual(self.path.read_bytes(), b'password123')
+        self.rollout.side_effect = None
+        with patch.object(self.helper, 'reconcile_secret'):
+            self.helper.migrate(self.path, url)
+        self.assertEqual(state['changes'], 1)
+        self.assertEqual(self.rollout.call_count, 2)
+
+    def test_stable_annotation_and_wrong_password_fails_without_cooldown(self):
+        self.path.write_bytes(b'password123')
+        url, state = self.server(b'manually-changed')
+        self.rollout.return_value = False
+        with patch.object(self.helper, 'reconcile_secret'):
+            with self.assertRaisesRegex(ValueError, 'credentials'):
+                self.helper.migrate(self.path, url)
+        self.wait.assert_not_called()
+        self.assertEqual(state['changes'], 0)
+
+    def test_rollout_annotation_is_stable_for_identical_credentials(self):
+        import hashlib
+        from subprocess import CompletedProcess
+        fingerprint = hashlib.sha256(b'password123').hexdigest()
+        for existing, ready, expected in [(None, True, True), (fingerprint, True, False), (fingerprint, False, True)]:
+            annotations = {} if existing is None else {'mtc-hack/grafana-password-sha256': existing}
+            snapshot = {'metadata': {'generation': 2}, 'spec': {'replicas': 1, 'template': {'metadata': {'annotations': annotations}}},
+                        'status': {'observedGeneration': 2, 'updatedReplicas': 1, 'readyReplicas': int(ready), 'availableReplicas': int(ready)}}
+            responses = [CompletedProcess([], 0, json.dumps(snapshot).encode()), CompletedProcess([], 0), CompletedProcess([], 0)]
+            with patch.object(self.helper.subprocess, 'run', side_effect=responses) as run:
+                self.assertEqual(self.real_refresh(b'password123'), expected)
+                patch_body = json.loads(run.call_args_list[1].kwargs['input'])
+                self.assertEqual(patch_body['spec']['template']['metadata']['annotations']['mtc-hack/grafana-password-sha256'], fingerprint)
+                self.assertNotIn('password123', ' '.join(run.call_args_list[1].args[0]))
+                self.assertIn('rollout', run.call_args_list[2].args[0])
 
     def test_rejects_remote_or_ambiguous_urls(self):
         for url in ['http://example.com', 'https://localhost', 'http://localhost.evil', 'http://admin@localhost', 'http://localhost/path', 'http://localhost?x=1']:
