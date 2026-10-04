@@ -161,8 +161,8 @@ def build(data, pins, output):
     descriptor, temporary = tempfile.mkstemp(prefix="passport-", suffix=".pdf", dir=output.parent)
     os.close(descriptor)
     canvas = Canvas(temporary, pagesize=A4, pageCompression=1, invariant=1)
-    canvas.setTitle("Паспорт решения | MTC Engineer Hack | sel")
-    canvas.setAuthor("sel")
+    canvas.setTitle("Паспорт решения | MTC Engineer Hack | Резван")
+    canvas.setAuthor("Резван")
 
     def safe(value):
         return escape(str(value).replace("—", "-").replace("–", "-").replace("‑", "-"))
@@ -199,7 +199,7 @@ def build(data, pins, output):
     def page(number, title, intro):
         canvas.setFillColor(teal)
         canvas.rect(margin, height - 29, 34, 3, fill=1, stroke=0)
-        paragraph("ПАСПОРТ РЕШЕНИЯ  /  SEL", margin + 44, height - 25, usable - 44, small)
+        paragraph("ПАСПОРТ РЕШЕНИЯ  /  РЕЗВАН", margin + 44, height - 25, usable - 44, small)
         y = paragraph(title, margin, height - 59, usable, title_style) - 9
         y = paragraph(intro, margin, y, usable) - 19
         canvas.setStrokeColor(colors.HexColor("#D5DFE4"))
@@ -259,9 +259,9 @@ def build(data, pins, output):
         arrow(x1+71, y-100, x1+71, y-123)
         arrow(x2+71, y-100, x2+71, y-123)
         arrow(x2-4, y-144, x1+147, y-144)
-        paragraph("Все observability endpoints - ClusterIP.<br/>Доступ эксперта: SSH tunnel / port-forward.", x0, y-72, 166, small)
+        paragraph("UI/API Prometheus, Loki и Grafana: ClusterIP.<br/>Доступ: SSH tunnel / port-forward.<br/>Host ports: см. ограничения.", x0, y-72, 166, small)
         y -= 182
-        y = section("Подтвержденная среда", y)
+        y = section("Среда по исходным протоколам", y)
         rows = [["<b>Узел / ОС / ресурсы</b>", "<b>Фактический результат</b>"]]
         for vm in data["vms"]:
             rows.append([f"<b>{safe(vm['name'])}</b>: {safe(vm['os'])}<br/>{vm['vcpu']} vCPU / {vm['ram_gib']:g} GiB RAM / {vm['disk_gb']:g} GB disk", f"Проверки: <b>{vm['checks_passed']}/{vm['checks_total']}</b><br/>Bootstrap kubeadm: {yes(vm['clean_deploy'])}<br/>Повторное развертывание: {yes(vm['repeat_deploy'])}"])
@@ -273,9 +273,9 @@ def build(data, pins, output):
         rows = [["<b>Реализация</b>", "<b>Почему так</b>", "<b>Проверка экспертом</b>"],
             ["<b>Kubernetes / Ubuntu</b><br/>kubeadm, containerd, Calico", "Полный путь от выделенной VM до рабочего кластера", "make preflight; make deploy;<br/>kubectl get nodes,pods -A"],
             ["<b>Gateway + приложение</b><br/>Nginx v1/v2, Gateway, HTTPRoute, NodePort", "Gateway API без зависимости от облачного балансировщика", "make verify: точные HTTP-ответы, актуальные Accepted / Programmed"],
-            ["<b>Prometheus + Grafana</b><br/>Helm, PodMonitor, dashboard", "Состояние targets и реальные counters; отфильтрован служебный трафик", "make verify: свежие scrape и рост request counter; Grafana dashboard"],
+            ["<b>Prometheus + Grafana</b><br/>Helm, PodMonitor, dashboard", "В исходниках исключен служебный HTTP-трафик; на VM A найден drift dashboard", "make verify: свежие scrape и рост request counter; Grafana dashboard"],
             ["<b>Fluentd + Loki</b><br/>CRI fragments, JSON access и текст stderr", "Разделение потоков, поиск по UUID, буфер при временном сбое Loki", "make verify: UUID найден в stdout и stderr; не только kubectl logs"],
-            ["<b>Воспроизводимость</b><br/>Ansible, Helm, Kustomize, pin/checksum и локальная сборка", "Нет личного registry; повторный запуск согласует ресурсы", "Повторить make deploy / make verify; сверить JSON-протокол"],
+            ["<b>Воспроизводимость</b><br/>Ansible, Helm, Kustomize, pin/checksum и локальная сборка", "Нет личного registry; декларативные ресурсы и фиксированные зависимости", "Повторить make deploy / make verify; сверить JSON и dashboard с исходниками"],
             ["<b>Маршрутизация и TLS</b><br/>hostname, /v2 rewrite; локальный CA", "Разные backends и проверка имени сервера без публичного DNS", "curl --resolve и --cacert; verify отвергает чужое имя / CA"],
             ["<b>Canary 90/10</b><br/>Веса backendRefs", "Стандартный механизм Gateway API для постепенного выпуска", "Полный verify: 1000 запросов и статистическая оценка распределения"],
             ["<b>Безопасность</b><br/>Непривилегированный Nginx, probes, limits, NetworkPolicy", "Ограничены права приложения и сетевой доступ; секреты вне Git", "Манифесты + readiness; фактические fault/policy tests в протоколе"],
@@ -292,7 +292,7 @@ def build(data, pins, output):
         y = paragraph("Один воспроизводимый сценарий связывает внешний HTTP-запрос, свежий счетчик Envoy и UUID в двух потоках Loki. Приемка проверяет сам поток данных, а не только готовность установленных компонентов.", margin, y, usable) - 17
         y = section("Самый сложный выбор", y)
         y = paragraph("Вместо Elasticsearch и сложного HA выбран Fluentd + Monolithic Loki с локальными PV: этот вариант укладывается в ресурсы стенда и сохраняет access/error-логи. Компромисс - отсутствие устойчивости к потере VM и необходимость контролировать свободный диск.", margin, y, usable) - 17
-        y = section("Факты из протоколов", y)
+        y = section("Факты из исходных протоколов", y)
         rows = [["<b>Прогон</b>", "<b>Canary v1 / v2</b>", "<b>Метрики / логи</b>"]]
         for vm in data["vms"]:
             c = vm["canary"]
@@ -317,7 +317,7 @@ def build(data, pins, output):
             y = paragraph("- " + line, margin, y, usable) - 6
         y -= 7
         y = section("Осознанные ограничения", y)
-        y = paragraph("Одна VM и local PV не дают HA. Профиль от 50 GB рассчитан на демонстрационный поток; PV capacity не является квотой, retention не заменяет контроль диска. TLS использует локальный CA; внешние уведомления не настроены. GitHub Actions подготовлен; удаленный CI run не выполнялся.", margin, y, usable, small) - 10
+        y = paragraph("Одна VM/local PV не дают HA; PV capacity не является квотой. TLS: локальный CA, внешних уведомлений нет. Независимая проверка: установка на чистую ОС не проверена; на A устаревший dashboard; открыты служебные host ports; на B лишний стартовый рестарт Operator. Подробности: docs/validation.md. CI static PASS; integration не запускался.", margin, y, usable, small) - 10
         revision = safe(data["source_revision"])
         tail = "Источник результатов: " + link("docs/evidence/summary.json") + f". Снимок: {revision}."
         if data.get("repository_url"):

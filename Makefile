@@ -18,4 +18,4 @@ status:
 	kubectl get pods -A
 	kubectl -n demo get gateway,httproute
 package:
-	python3 scripts/package.py --repo-url "$(REPO_URL)" --name sel --passport docs/passport/Паспорт.pdf --output dist
+	python3 scripts/package.py --repo-url "$(REPO_URL)" --name Резван --passport docs/passport/Паспорт.pdf --output dist

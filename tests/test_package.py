@@ -54,8 +54,8 @@ class PackageTests(unittest.TestCase):
             passport = root / 'input.pdf'
             small_pdf(passport, 4)
             url = 'https://github.com/acme/platform/tree/main'
-            output = package.create_archive(url, 'sel', passport, root / 'dist')
-            self.assertEqual(output.name, 'sel.zip')
+            output = package.create_archive(url, 'Резван', passport, root / 'dist')
+            self.assertEqual(output.name, 'Резван.zip')
             with zipfile.ZipFile(output) as archive:
                 self.assertEqual(set(archive.namelist()), {'Ссылка.txt', 'Паспорт.pdf'})
                 self.assertEqual(archive.read('Ссылка.txt').decode('utf-8'), url)
@@ -68,11 +68,11 @@ class PackageTests(unittest.TestCase):
             passport = root / 'input.pdf'
             small_pdf(passport, 5)
             with self.assertRaises(ValueError):
-                package.create_archive('https://github.com/acme/platform/tree/main', 'sel', passport, root / 'dist')
+                package.create_archive('https://github.com/acme/platform/tree/main', 'Резван', passport, root / 'dist')
             passport.write_text('not a PDF')
             with self.assertRaises(ValueError):
-                package.create_archive('https://github.com/acme/platform/tree/main', 'sel', passport, root / 'dist')
-            self.assertFalse((root / 'dist' / 'sel.zip').exists())
+                package.create_archive('https://github.com/acme/platform/tree/main', 'Резван', passport, root / 'dist')
+            self.assertFalse((root / 'dist' / 'Резван.zip').exists())
 
     def test_rejects_oversized_passport_and_filename_traversal(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -81,9 +81,9 @@ class PackageTests(unittest.TestCase):
             with passport.open('wb') as stream:
                 stream.truncate(15_000_001)
             with self.assertRaises(ValueError):
-                package.create_archive('https://github.com/acme/platform/tree/main', 'sel', passport, root / 'dist')
+                package.create_archive('https://github.com/acme/platform/tree/main', 'Резван', passport, root / 'dist')
             small_pdf(passport, 1)
-            for name in ('../escape', '/tmp/escape', 'sel.zip', '..', 'trailing.'):
+            for name in ('../escape', '/tmp/escape', 'Резван.zip', '..', 'trailing.'):
                 with self.subTest(name=name), self.assertRaises(ValueError):
                     package.create_archive('https://github.com/acme/platform/tree/main', name, passport, root / 'dist')
 

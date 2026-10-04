@@ -98,7 +98,7 @@ def create_archive(url, name, passport, output):
     """Validate local inputs and write ZIP atomically; CLI also verifies public main."""
     validate_url(url)
     if not re.fullmatch(r'[\w-][\w .-]{0,79}', name, re.UNICODE) or name.endswith(('.', ' ')):
-        raise ValueError('Имя архива должно быть фамилией без пути или расширения; например sel.')
+        raise ValueError('Имя архива должно быть фамилией без пути или расширения; например Резван.')
     if name.lower().endswith('.zip'):
         raise ValueError('Передайте имя без расширения .zip.')
     passport, output = Path(passport), Path(output)
@@ -125,7 +125,7 @@ def create_archive(url, name, passport, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo-url', required=True, help='Реальная публичная HTTPS-ссылка на main')
-    parser.add_argument('--name', default='sel', help='Имя архива без .zip')
+    parser.add_argument('--name', default='Резван', help='Имя архива без .zip')
     parser.add_argument('--passport', type=Path, default=Path('docs/passport/Паспорт.pdf'))
     parser.add_argument('--output', type=Path, default=Path('dist'))
     args = parser.parse_args()
