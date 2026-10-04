@@ -6,6 +6,7 @@ ssh-key-*/
 .state/
 .work/
 .venv/
+.venv-passport/
 __pycache__/
 .pytest_cache/
 artifacts/

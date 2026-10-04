@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "requested": 1000,
+  "attempted": 1000,
+  "successful": 1000,
+  "errors": 0,
+  "not_started": 0,
+  "wall_seconds": 0.593,
+  "wall_rps": 1686.693,
+  "latency_ms": {
+    "p50": 5.602,
+    "p95": 9.638,
+    "p99": 11.355,
+    "max": 13.262
+  },
+  "latency_scope": "all attempted requests, including failures; nearest-rank percentiles",
+  "error_examples": [],
+  "schema_version": 1,
+  "kind": "HTTP load smoke, not a capacity benchmark",
+  "timestamp": "2026-10-04T14:55:05.946590+00:00",
+  "host": "VM B",
+  "port": 30080,
+  "http_host": "demo.test",
+  "request_id": "f46168b9-0dd0-46d0-adbb-4a1d9f8d6952",
+  "concurrency": 10,
+  "request_timeout_seconds": 10.0,
+  "batch_timeout_seconds": 300.0,
+  "pass_criterion": "zero failed or unstarted requests; no latency or throughput SLO"
+}

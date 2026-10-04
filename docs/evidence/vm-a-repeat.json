@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "runtime_revision": "aa79f029d8a67e5f8b95c8359260f2c41c2ab989",
+  "command": "make deploy",
+  "exit_code": 0,
+  "before_after_equal": true,
+  "snapshot": {
+    "datasource_health": {
+      "loki": "OK",
+      "prometheus": "OK"
+    },
+    "grafana_authenticated_user_ok": true,
+    "grafana_pod_uids": {
+      "monitoring-grafana-d6cff6744-qm2zl": "c34f4e7e-a5e2-448f-873f-3c037260253b"
+    },
+    "grafana_rollout_ready": true,
+    "password_file_matches_secret": true,
+    "password_has_no_trailing_newline": true,
+    "public_certificate_sha256": {
+      "ca.crt": "3dbbde1e366fc5aff4926b51f2a633cd2fff7d7e07465dd74f603f830a0132bb",
+      "tls.crt": "e1f0e9b35ca51085981e988bb79f1e70803b83c779a20f281df0e3e88c3e0090"
+    },
+    "pvc_uids": {
+      "monitoring-grafana": "780cb653-d0f5-47a3-a467-38eea240d81e",
+      "prometheus-monitoring-kube-prometheus-prometheus-db-prometheus-monitoring-kube-prometheus-prometheus-0": "59462eb3-20de-46ea-8921-5caa1f4164aa",
+      "storage-loki-0": "03c39435-c318-4d87-ad50-40a72a15462c"
+    }
+  },
+  "last_revalidated_at": "2026-10-04T18:21:27.251726+00:00",
+  "comparison_note": "Snapshot from the preceding validation is unchanged after the latest make deploy."
+}

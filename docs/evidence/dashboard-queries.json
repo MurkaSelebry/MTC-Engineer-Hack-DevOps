@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-10-04T15:13:48.832210+00:00",
+  "dashboard": "observability/dashboards/demo.json",
+  "window": "30m",
+  "status": "passed",
+  "queries": [
+    {
+      "panel": "Demo available replicas",
+      "backend": "prometheus",
+      "expression": "sum by (deployment) (kube_deployment_status_replicas_available{namespace=\"demo\"})",
+      "success": true,
+      "result_type": "vector",
+      "result_count": 2,
+      "sample_or_line_count": 2
+    },
+    {
+      "panel": "Gateway requests / second",
+      "backend": "prometheus",
+      "expression": "sum(rate(envoy_http_downstream_rq_total{job=\"envoy-proxy\",envoy_http_conn_manager_prefix=~\"http-10080|https-10443\"}[5m]))",
+      "success": true,
+      "result_type": "vector",
+      "result_count": 1,
+      "sample_or_line_count": 1
+    },
+    {
+      "panel": "Gateway 5xx ratio",
+      "backend": "prometheus",
+      "expression": "(sum(rate(envoy_http_downstream_rq_xx{job=\"envoy-proxy\",envoy_http_conn_manager_prefix=~\"http-10080|https-10443\",envoy_response_code_class=\"5\"}[5m])) or vector(0)) / clamp_min(sum(rate(envoy_http_downstream_rq_total{job=\"envoy-proxy\",envoy_http_conn_manager_prefix=~\"http-10080|https-10443\"}[5m])), 0.01)",
+      "success": true,
+      "result_type": "vector",
+      "result_count": 1,
+      "sample_or_line_count": 1
+    },
+    {
+      "panel": "Gateway requests by response class",
+      "backend": "prometheus",
+      "expression": "sum by (envoy_response_code_class) (rate(envoy_http_downstream_rq_xx{job=\"envoy-proxy\",envoy_http_conn_manager_prefix=~\"http-10080|https-10443\"}[5m]))",
+      "success": true,
+      "result_type": "matrix",
+      "result_count": 5,
+      "sample_or_line_count": 305
+    },
+    {
+      "panel": "Demo memory working set",
+      "backend": "prometheus",
+      "expression": "sum by (pod) (container_memory_working_set_bytes{namespace=\"demo\",container=\"nginx\"})",
+      "success": true,
+      "result_type": "matrix",
+      "result_count": 3,
+      "sample_or_line_count": 183
+    },
+    {
+      "panel": "Demo CPU usage",
+      "backend": "prometheus",
+      "expression": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"demo\",container=\"nginx\"}[5m]))",
+      "success": true,
+      "result_type": "matrix",
+      "result_count": 3,
+      "sample_or_line_count": 183
+    },
+    {
+      "panel": "Node filesystem space remaining",
+      "backend": "prometheus",
+      "expression": "100 * node_filesystem_avail_bytes{mountpoint=\"/\",fstype!=\"rootfs\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype!=\"rootfs\"}",
+      "success": true,
+      "result_type": "matrix",
+      "result_count": 1,
+      "sample_or_line_count": 61
+    },
+    {
+      "panel": "Demo stdout \u2014 JSON access records",
+      "backend": "loki",
+      "expression": "{app=\"demo\",namespace=\"demo\",stream=\"stdout\"} | json",
+      "success": true,
+      "result_type": "streams",
+      "result_count": 1000,
+      "sample_or_line_count": 1000
+    },
+    {
+      "panel": "Demo stderr \u2014 preserved error messages",
+      "backend": "loki",
+      "expression": "{app=\"demo\",namespace=\"demo\",stream=\"stderr\"} | json",
+      "success": true,
+      "result_type": "streams",
+      "result_count": 3,
+      "sample_or_line_count": 3
+    }
+  ]
+}

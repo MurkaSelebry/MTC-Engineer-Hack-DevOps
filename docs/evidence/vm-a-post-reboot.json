@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "timestamp": "2026-10-04T14:55:40.812242+00:00",
+  "mode": "full",
+  "integration": true,
+  "status": "passed",
+  "checks": [
+    {
+      "name": "prerequisites",
+      "status": "passed",
+      "details": {
+        "host": "VM A",
+        "nodes": 1
+      },
+      "seconds": 0.066
+    },
+    {
+      "name": "node-cni-dns-readiness",
+      "status": "passed",
+      "details": {
+        "nodes": 1,
+        "pod_cidr": "10.244.0.0/16",
+        "checked_non_host_pods": 16,
+        "coredns_pods": 2,
+        "calico_pods": 4
+      },
+      "seconds": 0.282
+    },
+    {
+      "name": "namespace-pods-and-workloads",
+      "status": "passed",
+      "details": {
+        "demo": 3,
+        "envoy-gateway-system": 3,
+        "observability": 7
+      },
+      "seconds": 0.339
+    },
+    {
+      "name": "gateway-and-route-conditions",
+      "status": "passed",
+      "details": {
+        "listeners": 2,
+        "route_hosts": [
+          "canary.test",
+          "demo.test"
+        ]
+      },
+      "seconds": 0.101
+    },
+    {
+      "name": "http-https-paths",
+      "status": "passed",
+      "details": {
+        "protocols": [
+          "http",
+          "https"
+        ],
+        "paths": [
+          "/",
+          "/v2",
+          "/v2/"
+        ]
+      },
+      "seconds": 0.185
+    },
+    {
+      "name": "tls-rejects-wrong-identity-and-ca",
+      "status": "passed",
+      "details": {
+        "wrong_hostname": "certificate rejected",
+        "wrong_ca": "certificate rejected"
+      },
+      "seconds": 0.215
+    },
+    {
+      "name": "canary-weighted-distribution",
+      "status": "passed",
+      "details": {
+        "v1": 900,
+        "v2": 100,
+        "samples": 1000,
+        "v2_fraction": 0.1,
+        "accepted_range": [
+          0.05,
+          0.15
+        ]
+      },
+      "seconds": 7.38
+    },
+    {
+      "name": "prometheus-envoy-counter-growth",
+      "status": "passed",
+      "details": {
+        "targets_up": 2,
+        "envoy_pods": 2,
+        "query": "sum(envoy_cluster_upstream_rq_total{instance=~\"10\\\\.244\\\\.225\\\\.42:19001|10\\\\.244\\\\.225\\\\.48:19001\",envoy_cluster_name=~\"httproute/demo/(demo|canary)/rule/.*\"})",
+        "before": 1008.0,
+        "after": 1038.0,
+        "requests": 30,
+        "baseline_barrier": 1791125719.214316,
+        "baseline_scrapes": {
+          "10.244.225.42:19001": 1791125720.063,
+          "10.244.225.48:19001": 1791125721.972
+        },
+        "burst_barrier": 1791125722.4550574,
+        "after_scrapes": {
+          "10.244.225.42:19001": 1791125735.063,
+          "10.244.225.48:19001": 1791125736.972
+        }
+      },
+      "seconds": 18.635
+    },
+    {
+      "name": "loki-request-stdout-and-stderr",
+      "status": "passed",
+      "details": {
+        "request_id": "df0e13bd-afa9-4122-ac3b-7213f0609aa0",
+        "streams": [
+          "stderr",
+          "stdout"
+        ],
+        "stdout_uri": "/?verify=df0e13bd-afa9-4122-ac3b-7213f0609aa0",
+        "stdout_status": 200,
+        "stderr_missing_file": "/missing-df0e13bd-afa9-4122-ac3b-7213f0609aa0"
+      },
+      "seconds": 3.328
+    }
+  ]
+}

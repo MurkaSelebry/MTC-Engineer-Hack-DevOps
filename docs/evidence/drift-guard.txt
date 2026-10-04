@@ -1,0 +1,2 @@
+PASS: attempt 1 rejected before host mutation; baseline and firewall hashes unchanged
+PASS: attempt 2 rejected before host mutation; baseline and firewall hashes unchanged

@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-10-04T14:57:57.585059+00:00",
+  "status": "passed",
+  "pvc_uids_unchanged": true,
+  "ca_and_leaf_unchanged": true,
+  "pre_reboot_loki_request_id": "6029a3bd-0800-49ac-91da-360eb17e1093",
+  "old_stdout_and_stderr_found": true,
+  "historical_prometheus_time": 1791125459.794,
+  "historical_prometheus_value": 4338.0,
+  "expected_value": 4338.0,
+  "boot_id": "16486720-bdbf-4706-9753-bbac815a92aa"
+}

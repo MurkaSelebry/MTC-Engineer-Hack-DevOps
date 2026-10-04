@@ -1,0 +1,9 @@
+./scripts/lint.sh
+Python syntax and YAML parsing passed
+..........................................................................
+----------------------------------------------------------------------
+Ran 74 tests in 11.359s
+
+OK
+
+playbook: ansible/site.yml

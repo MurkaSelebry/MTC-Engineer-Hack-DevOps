@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-10-04T14:56:28.646088+00:00",
+  "status": "passed",
+  "pvc_uids": {
+    "monitoring-grafana": "130ae1cd-68ad-48e9-8093-e722624be798",
+    "prometheus-monitoring-kube-prometheus-prometheus-db-prometheus-monitoring-kube-prometheus-prometheus-0": "86c06ef5-45b6-47f4-a1e7-a7aa7ecb23b2",
+    "storage-loki-0": "b235e7a7-3be4-4fba-84ad-c3777b201127"
+  },
+  "checks": [
+    {
+      "name": "network-policy-enforcement",
+      "status": "passed",
+      "details": {
+        "unrelated_pod": "connection timed out",
+        "gateway": "HTTP 200"
+      },
+      "seconds": 8.616
+    },
+    {
+      "name": "application-pod-recovery",
+      "status": "passed",
+      "details": {
+        "replaced_uid": "4fc3c8eb-1f89-4327-a500-fab52fbfa676",
+        "new_ready_pods": 2
+      },
+      "seconds": 16.415
+    },
+    {
+      "name": "fluentd-disk-buffer-survives-restart-and-loki-outage",
+      "status": "passed",
+      "details": {
+        "marker": "recovery-0fe75b69-f307-4208-b378-61efbbe09beb",
+        "requests": 100,
+        "delivered_stdout": 100,
+        "delivered_stderr": 100,
+        "persisted_buffer_bytes": 110917,
+        "fluentd_restarted_during_loki_outage": true
+      },
+      "seconds": 57.487
+    }
+  ]
+}

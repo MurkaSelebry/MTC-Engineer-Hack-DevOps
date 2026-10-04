@@ -1,0 +1,109 @@
+{
+  "timestamp": "2026-10-04T15:02:48.924509+00:00",
+  "origin": "independent macOS client outside the VMs",
+  "status": "passed",
+  "http_checks": [
+    {
+      "vm": "VM A",
+      "protocol": "http",
+      "path": "/",
+      "body": "Hello World! version=v1",
+      "tls_ca_verified": false,
+      "status": "passed"
+    },
+    {
+      "vm": "VM A",
+      "protocol": "http",
+      "path": "/v2",
+      "body": "Hello World! version=v2",
+      "tls_ca_verified": false,
+      "status": "passed"
+    },
+    {
+      "vm": "VM A",
+      "protocol": "http",
+      "path": "/v2/",
+      "body": "Hello World! version=v2",
+      "tls_ca_verified": false,
+      "status": "passed"
+    },
+    {
+      "vm": "VM A",
+      "protocol": "https",
+      "path": "/",
+      "body": "Hello World! version=v1",
+      "tls_ca_verified": true,
+      "status": "passed"
+    },
+    {
+      "vm": "VM A",
+      "protocol": "https",
+      "path": "/v2",
+      "body": "Hello World! version=v2",
+      "tls_ca_verified": true,
+      "status": "passed"
+    },
+    {
+      "vm": "VM A",
+      "protocol": "https",
+      "path": "/v2/",
+      "body": "Hello World! version=v2",
+      "tls_ca_verified": true,
+      "status": "passed"
+    },
+    {
+      "vm": "VM B",
+      "protocol": "http",
+      "path": "/",
+      "body": "Hello World! version=v1",
+      "tls_ca_verified": false,
+      "status": "passed"
+    },
+    {
+      "vm": "VM B",
+      "protocol": "http",
+      "path": "/v2",
+      "body": "Hello World! version=v2",
+      "tls_ca_verified": false,
+      "status": "passed"
+    },
+    {
+      "vm": "VM B",
+      "protocol": "http",
+      "path": "/v2/",
+      "body": "Hello World! version=v2",
+      "tls_ca_verified": false,
+      "status": "passed"
+    },
+    {
+      "vm": "VM B",
+      "protocol": "https",
+      "path": "/",
+      "body": "Hello World! version=v1",
+      "tls_ca_verified": true,
+      "status": "passed"
+    },
+    {
+      "vm": "VM B",
+      "protocol": "https",
+      "path": "/v2",
+      "body": "Hello World! version=v2",
+      "tls_ca_verified": true,
+      "status": "passed"
+    },
+    {
+      "vm": "VM B",
+      "protocol": "https",
+      "path": "/v2/",
+      "body": "Hello World! version=v2",
+      "tls_ca_verified": true,
+      "status": "passed"
+    }
+  ],
+  "administrative_ports_blocked_on_both_vms": [
+    6443,
+    10250,
+    2379,
+    2380
+  ]
+}

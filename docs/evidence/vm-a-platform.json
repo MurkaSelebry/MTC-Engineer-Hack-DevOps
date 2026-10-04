@@ -1,0 +1,73 @@
+{
+  "timestamp": "2026-10-04T18:21:27.251726+00:00",
+  "machine": "x86_64",
+  "cpu_count": 8,
+  "os": "Ubuntu 24.04.5 LTS",
+  "memory_bytes": 16767614976,
+  "disk": {
+    "total": 207320727552,
+    "used": 10813775872,
+    "free": 196490174464
+  },
+  "pvc_uids": {
+    "monitoring-grafana": "780cb653-d0f5-47a3-a467-38eea240d81e",
+    "prometheus-monitoring-kube-prometheus-prometheus-db-prometheus-monitoring-kube-prometheus-prometheus-0": "59462eb3-20de-46ea-8921-5caa1f4164aa",
+    "storage-loki-0": "03c39435-c318-4d87-ad50-40a72a15462c"
+  },
+  "cert_sha256": {
+    "ca.crt": "3dbbde1e366fc5aff4926b51f2a633cd2fff7d7e07465dd74f603f830a0132bb",
+    "tls.crt": "e1f0e9b35ca51085981e988bb79f1e70803b83c779a20f281df0e3e88c3e0090"
+  },
+  "images": [
+    "docker.io/envoyproxy/envoy@sha256:eb2c01c13125d1629637cb4e4cce7207009fb7cc2c8027f9742758549d15b6f4",
+    "docker.io/envoyproxy/gateway@sha256:9d67017c442a70e6ae9f1a358e6c80eb653c67c2e40823d9a991e0daf37ba926",
+    "docker.io/grafana/grafana@sha256:202e5d5b3f8499e70ccac7991eea6d7da72d2790eb2e0597e7987acf724e7180",
+    "docker.io/grafana/loki@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193",
+    "docker.io/nginxinc/nginx-unprivileged@sha256:f4522a5f23f9caebcae9be6e3940ea0599a2b9eb05222c7118d01fc887e848d6",
+    "quay.io/calico/csi@sha256:a4e6bc025131e754a96d9f4432bfc5e6cd42add6d59a701750988186d51d9b1f",
+    "quay.io/calico/kube-controllers@sha256:7870b67ebb13fabc3005252b44fe6e78b21635649bd3072b80afa1684b6565d0",
+    "quay.io/calico/node-driver-registrar@sha256:abbeca287aeae48927b37cef8cbc17601357b132382ca6be4deb327c2c8d9aa2",
+    "quay.io/calico/node@sha256:99b03fe91e8bfbcb153ae65ef4b701b24ce541ffdd74ff314eb041096008f7fd",
+    "quay.io/calico/typha@sha256:62b67d7ec399335e9e1a5681c793796126aee8764467308b2c9c4b0f60ce8a01",
+    "quay.io/kiwigrid/k8s-sidecar@sha256:2912be006f62f9ea080194cf6d3afcd90daead8d101d0ba686a137a849f6a4f6",
+    "quay.io/prometheus-operator/prometheus-config-reloader@sha256:06b52bd4dbe3ed6dd5905aadaf8b9987d9da4c31d37bb86deaadae68cee2d26b",
+    "quay.io/prometheus-operator/prometheus-operator@sha256:7c88d4e7bae63bd8d0f8da986054337c23b4472fa8d3c6817f5bc4b8407a2d6a",
+    "quay.io/prometheus/node-exporter@sha256:8c9bac11973b94b59be88d6e11fee4429aa743c8846cdc75d65b18db33f6a106",
+    "quay.io/prometheus/prometheus@sha256:b2a413d5a03ea6a76782a508d1c7947440bba3b973931a25676e278431891b01",
+    "quay.io/tigera/operator@sha256:3a03d460f8a102e0e6129253d6d1106556b293735ec502c3b67889dbec61aaaf",
+    "registry.k8s.io/coredns/coredns@sha256:9b9128672209474da07c91439bf15ed704ae05ad918dd6454e5b6ae14e35fee6",
+    "registry.k8s.io/etcd@sha256:60a30b5d81b2217555e2cfb9537f655b7ba97220b99c39ee2e162a7127225890",
+    "registry.k8s.io/kube-apiserver@sha256:32abf8e4e2ae679b35c719a04902c2ae1a98a5b8648ac034a4672e39660f8a73",
+    "registry.k8s.io/kube-controller-manager@sha256:d7e4983f79ee763f7c56226395ab9c55261ff6035df5ed23eef9bd26b63eb140",
+    "registry.k8s.io/kube-proxy@sha256:d08adb0c8c2c68075f1e6fa6c4c82880c5af54c1686ac20d22af612082c32a31",
+    "registry.k8s.io/kube-scheduler@sha256:d96574ba699bc887eeefcc05d9f7828b4df5ba75feac6f20b98097aa85d1ed22",
+    "registry.k8s.io/kube-state-metrics/kube-state-metrics@sha256:42cfe3723a5f058171c627537fb57a3ea0f26e4380fa18555a95cb1a1b4cfc5b",
+    "sha256:7648619c8e62bd8ee415969221b12e5595d4c6ab99e60a81ff6e93da9f9d1ff3"
+  ],
+  "prometheus_targets_total": 15,
+  "prometheus_targets_up": 15,
+  "target_jobs": [
+    "apiserver",
+    "coredns",
+    "envoy-proxy",
+    "kube-state-metrics",
+    "kubelet",
+    "monitoring-grafana",
+    "monitoring-kube-prometheus-operator",
+    "monitoring-kube-prometheus-prometheus",
+    "node-exporter",
+    "observability/loki"
+  ],
+  "observability_memory_query": "sum(container_memory_working_set_bytes{namespace=\"observability\",container!=\"\",container!=\"POD\"})",
+  "observability_memory_bytes": 1296392192.0,
+  "grafana_health": {
+    "database": "ok",
+    "version": "13.2.3",
+    "commit": "90ffed056f0884267356c12a0eeb72a022af53f1"
+  },
+  "datasource_health": {
+    "prometheus": "OK",
+    "loki": "OK"
+  },
+  "dashboard_panels": 9
+}

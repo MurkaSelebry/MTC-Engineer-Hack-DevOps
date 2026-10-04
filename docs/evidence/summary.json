@@ -1,0 +1,81 @@
+{
+  "tested_at": "2026-10-04",
+  "source_revision": "aa79f029d8a67e5f8b95c8359260f2c41c2ab989",
+  "repository_url": null,
+  "vms": [
+    {
+      "name": "VM A",
+      "os": "Ubuntu 24.04.5 LTS amd64",
+      "vcpu": 8,
+      "ram_gib": 15.62,
+      "disk_gb": 200,
+      "clean_deploy": true,
+      "repeat_deploy": true,
+      "checks_passed": 9,
+      "checks_total": 9,
+      "canary": {
+        "samples": 1000,
+        "v1": 900,
+        "v2": 100
+      },
+      "prometheus_targets_up": 15,
+      "loki_stdout": true,
+      "loki_stderr": true,
+      "report": "docs/evidence/vm-a-verification.json",
+      "last_verified_at": "2026-10-04T18:21:26.648578+00:00"
+    },
+    {
+      "name": "VM B",
+      "os": "Ubuntu 24.04.5 LTS amd64",
+      "vcpu": 8,
+      "ram_gib": 15.62,
+      "disk_gb": 50,
+      "clean_deploy": true,
+      "repeat_deploy": true,
+      "checks_passed": 9,
+      "checks_total": 9,
+      "canary": {
+        "samples": 1000,
+        "v1": 899,
+        "v2": 101
+      },
+      "prometheus_targets_up": 15,
+      "loki_stdout": true,
+      "loki_stderr": true,
+      "report": "docs/evidence/vm-b-verification.json",
+      "last_verified_at": "2026-10-04T18:21:28.452819+00:00"
+    }
+  ],
+  "fault_tests": [
+    {
+      "name": "NetworkPolicy: запрет обхода Gateway",
+      "result": "PASS",
+      "report": "docs/evidence/vm-b-recovery.json"
+    },
+    {
+      "name": "Восстановление удаленного Pod",
+      "result": "PASS",
+      "report": "docs/evidence/vm-b-recovery.json"
+    },
+    {
+      "name": "Loki outage + restart Fluentd: 100/100 пар логов",
+      "result": "PASS",
+      "report": "docs/evidence/vm-b-recovery.json"
+    },
+    {
+      "name": "Reboot: сохранность томов, TLS, метрик и логов",
+      "result": "PASS",
+      "report": "docs/evidence/vm-b-persistence.json"
+    }
+  ],
+  "unit_tests": {
+    "passed": 74,
+    "total": 74
+  },
+  "provenance": {
+    "source_revision_scope": "Final full acceptance and repeat deployment on both VMs. Earlier recovery, load and reboot reports retain their own timestamps; exact Git SHA was not separately recorded for every earlier development run.",
+    "bootstrap_scope": "VM A initial deployment; VM B independent Git-bundle clone and clean kubeadm state, with OS packages and download cache retained after preliminary test.",
+    "ci": "configured, not remotely executed",
+    "public_repository": "main must be published before submission; anonymous public clone has not yet been tested"
+  }
+}
