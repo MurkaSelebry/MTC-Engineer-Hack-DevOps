@@ -53,7 +53,7 @@ kubectl -n demo rollout status deployment/demo-v2 --timeout=300s
 kubectl -n demo wait --for=condition=Programmed gateway/demo --timeout=300s
 
 umask 077
-[[ -f .secrets/grafana-password ]] || openssl rand -hex 24 > .secrets/grafana-password
+python3 scripts/grafana-password.py prepare
 printf admin > .secrets/grafana-user
 kubectl -n observability create secret generic grafana-admin \
   --from-file=admin-user=.secrets/grafana-user --from-file=admin-password=.secrets/grafana-password \
@@ -65,6 +65,7 @@ timeout 900 helm upgrade --install monitoring "$monitor_chart" -n observability 
   --set grafana.admin.existingSecret=grafana-admin \
   --set grafana.admin.userKey=admin-user --set grafana.admin.passwordKey=admin-password \
   --wait --timeout 10m
+python3 scripts/grafana-password.py migrate
 kubectl wait --for=condition=Established crd/podmonitors.monitoring.coreos.com crd/prometheusrules.monitoring.coreos.com --timeout=120s
 timeout 900 helm upgrade --install loki "$loki_chart" -n observability -f helm/loki.yaml --wait --timeout 10m
 
